@@ -1,0 +1,237 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum KycStatus {
+  UNVERIFIED
+  PENDING
+  VERIFIED
+}
+
+enum RideStatus {
+  OPEN
+  COMPLETED
+  CANCELLED
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  REJECTED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  NONE
+  SIMULATED_PAID
+  REFUNDED
+}
+
+enum LuggageSize {
+  NONE
+  SMALL
+  MEDIUM
+  LARGE
+}
+
+enum StandbyStatus {
+  WAITING
+  OFFERED
+  PROMOTED
+  CANCELLED
+  EXPIRED
+}
+
+model User {
+  id           String    @id @default(cuid())
+  name         String
+  email        String    @unique
+  passwordHash String
+  phone        String
+  bio          String    @default("")
+  role         Role      @default(USER)
+  isBanned     Boolean   @default(false)
+  kycStatus    KycStatus @default(UNVERIFIED)
+  kycIdNumber  String?
+  kycNote      String?
+  createdAt    DateTime  @default(now())
+
+  vehicles           Vehicle[]
+  rides              Ride[]
+  bookings           Booking[]
+  standbyRequests    StandbyRequest[]
+  reviewsGiven       Review[]         @relation("ReviewsGiven")
+  reviewsReceived    Review[]         @relation("ReviewsReceived")
+  savedSearches      SavedSearch[]
+  chatMessagesSent   ChatMessage[]
+  driverChatRooms    ChatRoom[]       @relation("DriverChatRooms")
+  passengerChatRooms ChatRoom[]       @relation("PassengerChatRooms")
+
+  @@index([kycStatus])
+}
+
+model Vehicle {
+  id                String   @id @default(cuid())
+  driverId          String
+  make              String
+  model             String
+  year              Int      @default(2022)
+  color             String
+  plateNumber       String
+  maxPassengerSeats Int      @default(4)
+  trunkDescription  String   @default("Standard sedan trunk")
+  maxLuggageUnits   Int      @default(6)
+  isDefault         Boolean  @default(true)
+  createdAt         DateTime @default(now())
+
+  driver User   @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  rides  Ride[]
+
+  @@index([driverId])
+}
+
+model Ride {
+  id                         String     @id @default(cuid())
+  driverId                   String
+  vehicleId                  String?
+  originName                 String
+  originLat                  Float
+  originLng                  Float
+  originH3Index              String
+  destName                   String
+  destLat                    Float
+  destLng                    Float
+  departureTime              DateTime
+  estimatedArrivalTime       DateTime?
+  totalSeats                 Int
+  availableSeats             Int
+  price                      Float
+  instantBooking             Boolean    @default(false)
+  liveLocationSharingEnabled Boolean    @default(false)
+  maxLuggageUnits            Int        @default(6)
+  amenities                  String[]   @default([])
+  status                     RideStatus @default(OPEN)
+  createdAt                  DateTime   @default(now())
+
+  driver          User             @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  vehicle         Vehicle?         @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  bookings        Booking[]
+  standbyRequests StandbyRequest[]
+  reviews         Review[]
+  chatRooms       ChatRoom[]
+
+  @@index([originH3Index])
+  @@index([status, departureTime])
+}
+
+model Booking {
+  id             String        @id @default(cuid())
+  rideId         String
+  passengerId    String
+  seatsRequested Int
+  luggageSize    LuggageSize   @default(NONE)
+  luggageUnits   Int           @default(0)
+  totalFare      Float         @default(0)
+  paymentStatus  PaymentStatus @default(NONE)
+  status         BookingStatus @default(PENDING)
+  createdAt      DateTime      @default(now())
+  cancelledAt    DateTime?
+
+  ride      Ride @relation(fields: [rideId], references: [id], onDelete: Cascade)
+  passenger User @relation(fields: [passengerId], references: [id], onDelete: Cascade)
+
+  @@index([passengerId, status])
+  @@index([rideId, status])
+}
+
+model StandbyRequest {
+  id                         String        @id @default(cuid())
+  rideId                     String
+  passengerId                String
+  existingConfirmedBookingId String?
+  seatsRequested             Int           @default(1)
+  luggageSize                LuggageSize   @default(NONE)
+  luggageUnits               Int           @default(0)
+  status                     StandbyStatus @default(WAITING)
+  offerExpiresAt             DateTime?
+  createdAt                  DateTime      @default(now())
+
+  ride      Ride @relation(fields: [rideId], references: [id], onDelete: Cascade)
+  passenger User @relation(fields: [passengerId], references: [id], onDelete: Cascade)
+
+  @@index([rideId, status, createdAt])
+  @@index([passengerId, status])
+}
+
+model Review {
+  id         String   @id @default(cuid())
+  rideId     String
+  reviewerId String
+  revieweeId String
+  rating     Int
+  tags       String[] @default([])
+  comment    String
+  createdAt  DateTime @default(now())
+
+  ride     Ride @relation(fields: [rideId], references: [id], onDelete: Cascade)
+  reviewer User @relation("ReviewsGiven", fields: [reviewerId], references: [id], onDelete: Cascade)
+  reviewee User @relation("ReviewsReceived", fields: [revieweeId], references: [id], onDelete: Cascade)
+
+  @@unique([rideId, reviewerId, revieweeId])
+  @@index([revieweeId])
+}
+
+model ChatRoom {
+  id          String   @id @default(cuid())
+  rideId      String
+  driverId    String
+  passengerId String
+  createdAt   DateTime @default(now())
+
+  ride      Ride          @relation(fields: [rideId], references: [id], onDelete: Cascade)
+  driver    User          @relation("DriverChatRooms", fields: [driverId], references: [id], onDelete: Cascade)
+  passenger User          @relation("PassengerChatRooms", fields: [passengerId], references: [id], onDelete: Cascade)
+  messages  ChatMessage[]
+
+  @@unique([rideId, driverId, passengerId])
+}
+
+model ChatMessage {
+  id        String   @id @default(cuid())
+  roomId    String
+  senderId  String?
+  body      String
+  isSystem  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  room   ChatRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  sender User?    @relation(fields: [senderId], references: [id], onDelete: SetNull)
+
+  @@index([roomId, createdAt])
+}
+
+model SavedSearch {
+  id         String   @id @default(cuid())
+  userId     String
+  originName String
+  originLat  Float
+  originLng  Float
+  destName   String
+  destLat    Float
+  destLng    Float
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}

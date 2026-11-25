@@ -1,0 +1,93 @@
+@import "tailwindcss";
+
+:root {
+  /* Documented Brand Palette */
+  --color-brand-primary: #1E90FF;
+  --color-brand-primary-hover: #1574D6;
+  --color-brand-secondary: #8DCCFF;
+  --color-neutral-ink: #050412;
+  --color-neutral-surface: #E9EEF5;
+
+  /* Observed UI & Semantic Colors */
+  --color-bg-canvas: #FFFFFF;
+  --color-text-secondary: #5E6878;
+  --color-text-tertiary: #8E98A8;
+  --color-border-default: #DCE3EE;
+  --color-status-success: #16A34A;
+  --color-status-success-bg: #DCFCE7;
+  --color-status-info-bg: #EBF5FF;
+  --color-status-warning: #D97706;
+  --color-status-warning-bg: #FEF3C7;
+  --color-status-danger: #DC2626;
+  --color-status-danger-bg: #FEE2E2;
+  --color-rating-star: #F59E0B;
+  --color-backdrop: rgba(5, 4, 18, 0.45);
+
+  /* Radii */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-sheet: 24px;
+  --radius-pill: 9999px;
+
+  /* Elevation */
+  --shadow-card: 0 2px 8px rgba(5, 4, 18, 0.06);
+  --shadow-floating: 0 4px 16px rgba(5, 4, 18, 0.08);
+  --shadow-fab: 0 6px 20px rgba(30, 144, 255, 0.28);
+  --shadow-sheet: 0 -8px 32px rgba(5, 4, 18, 0.14);
+}
+
+@theme inline {
+  --color-brand-primary: var(--color-brand-primary);
+  --color-brand-secondary: var(--color-brand-secondary);
+  --color-neutral-ink: var(--color-neutral-ink);
+  --color-neutral-surface: var(--color-neutral-surface);
+  --color-canvas: var(--color-bg-canvas);
+  --color-text-secondary: var(--color-text-secondary);
+  --color-border-default: var(--color-border-default);
+  --font-sans: var(--font-plus-jakarta), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+body {
+  background-color: #F7F9FC;
+  color: var(--color-neutral-ink);
+  font-family: var(--font-plus-jakarta), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.along-card {
+  background: var(--color-bg-canvas);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+.along-btn-primary {
+  background: var(--color-brand-primary);
+  color: #FFFFFF;
+  font-weight: 600;
+  border-radius: var(--radius-md);
+  transition: background-color 150ms ease, transform 120ms ease;
+}
+.along-btn-primary:hover:not(:disabled) {
+  background: var(--color-brand-primary-hover);
+}
+.along-btn-primary:disabled {
+  background: var(--color-neutral-surface);
+  color: var(--color-text-tertiary);
+}
+
+.along-btn-secondary {
+  background: #FFFFFF;
+  color: var(--color-brand-primary);
+  border: 1.5px solid var(--color-brand-primary);
+  font-weight: 600;
+  border-radius: var(--radius-md);
+  transition: background-color 150ms ease;
+}
+.along-btn-secondary:hover:not(:disabled) {
+  background: var(--color-status-info-bg);
+}
+
+.maplibregl-canvas {
+  outline: none;
+}

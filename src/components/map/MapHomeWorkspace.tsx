@@ -609,26 +609,14 @@ export function MapHomeWorkspace() {
           type="button"
           onClick={openDrawer}
           aria-label="Open navigation drawer"
-          className="absolute start-4 top-4 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-white text-[#050412] shadow-md transition active:scale-95 lg:hidden"
+          className="absolute start-3 top-3.5 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-white text-[#050412] shadow-md transition active:scale-95 lg:hidden"
         >
           <Menu className="h-5 w-5" />
         </button>
 
-        {/* Floating Top-Center Pickup Point Pill */}
-        <div className="pointer-events-none absolute inset-x-0 top-4 z-10 flex justify-center px-16">
-          <button
-            type="button"
-            onClick={() => setSheetSnap("half")}
-            className="pointer-events-auto flex max-w-[180px] items-center gap-2 rounded-2xl bg-white/95 px-3.5 py-2 text-xs font-bold text-[#050412] shadow-md backdrop-blur transition hover:bg-white sm:max-w-xs"
-          >
-            <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-[#1E90FF]" />
-            <span className="truncate">Pickup: {pickupLabel}</span>
-          </button>
-        </div>
-
         {/* Floating Top-End Sign In & Register Buttons on Map when logged out */}
         {!user && (
-          <div className="absolute end-4 top-4 z-20 flex items-center gap-1.5">
+          <div className="absolute end-3 top-3.5 z-20 flex items-center gap-1.5">
             <Link
               href="/login"
               className="rounded-xl border border-[#DCE3EE] bg-white/95 px-3 py-2 text-xs font-bold text-[#050412] shadow-md backdrop-blur transition hover:bg-white"
@@ -643,6 +631,22 @@ export function MapHomeWorkspace() {
             </Link>
           </div>
         )}
+
+        {/* Floating Pickup Point Pill (sits cleanly below top row on mobile when logged out to prevent overlap) */}
+        <div
+          className={`pointer-events-none absolute inset-x-0 z-10 flex justify-center px-16 ${
+            !user ? "top-16 lg:top-4" : "top-3.5"
+          }`}
+        >
+          <button
+            type="button"
+            onClick={() => setSheetSnap("half")}
+            className="pointer-events-auto flex max-w-[220px] items-center gap-2 rounded-2xl bg-white/95 px-3.5 py-2 text-xs font-bold text-[#050412] shadow-md backdrop-blur transition hover:bg-white sm:max-w-xs"
+          >
+            <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-[#1E90FF]" />
+            <span className="truncate">Pickup: {pickupLabel}</span>
+          </button>
+        </div>
 
         {/* Desktop Floating City Presets Bar */}
         <div className="absolute bottom-5 start-4 z-10 hidden flex-wrap gap-1.5 lg:flex">

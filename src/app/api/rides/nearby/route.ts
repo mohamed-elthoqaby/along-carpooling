@@ -66,9 +66,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(result);
   } catch (error) {
     console.error("Nearby rides error:", error);
-    return NextResponse.json(
-      { error: "Failed to search rides" },
-      { status: 500 }
-    );
+    const detail =
+      error instanceof Error ? error.message : "Failed to search rides";
+    return NextResponse.json({ error: detail }, { status: 500 });
   }
 }

@@ -70,11 +70,12 @@ export default function LoginPage() {
             </label>
             <input
               type="email"
+              dir="ltr"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="ahmed@along.eg"
-              className="mt-1.5 w-full rounded-[12px] border border-[#DCE3EE] bg-white px-3.5 py-3 text-sm text-[#050412] focus:border-[#1E90FF] focus:outline-none"
+              placeholder="you@example.com"
+              className="mt-1.5 w-full rounded-[12px] border border-[#DCE3EE] bg-white px-3.5 py-3 text-left text-sm text-[#050412] focus:border-[#1E90FF] focus:outline-none"
             />
           </div>
 
@@ -84,11 +85,12 @@ export default function LoginPage() {
             </label>
             <input
               type="password"
+              dir="ltr"
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              className="mt-1.5 w-full rounded-[12px] border border-[#DCE3EE] bg-white px-3.5 py-3 text-sm text-[#050412] focus:border-[#1E90FF] focus:outline-none"
+              placeholder="Enter your password"
+              className="mt-1.5 w-full rounded-[12px] border border-[#DCE3EE] bg-white px-3.5 py-3 text-left text-sm text-[#050412] focus:border-[#1E90FF] focus:outline-none"
             />
           </div>
 
@@ -97,16 +99,9 @@ export default function LoginPage() {
             disabled={submitting}
             className="along-btn-primary w-full py-3 text-[15px]"
           >
-            {submitting ? "Signing in..." : "Continue"}
+            {submitting ? "Signing in..." : "Sign In"}
           </button>
         </form>
-
-        <div className="mt-5 rounded-[12px] bg-[#E9EEF5] p-3 text-xs text-[#5E6878]">
-          <p className="font-semibold text-[#050412]">Accounts:</p>
-          <p className="mt-1">Driver: ahmed@along.eg (Password123!)</p>
-          <p>Passenger: salma@along.eg (Password123!)</p>
-          <p>Admin: admin@along.com</p>
-        </div>
 
         <p className="mt-5 text-center text-sm text-[#5E6878]">
           New to Along?{" "}

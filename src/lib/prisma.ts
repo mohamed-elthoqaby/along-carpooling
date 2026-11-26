@@ -5,12 +5,21 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 function resolveDatabaseUrl(): string | undefined {
-  return (
+  const raw =
     process.env.DATABASE_URL ||
     process.env.POSTGRES_PRISMA_URL ||
     process.env.POSTGRES_URL ||
-    process.env.POSTGRES_URL_NON_POOLING
-  );
+    process.env.POSTGRES_URL_NON_POOLING;
+
+  if (!raw) return undefined;
+
+  // Ensure PgBouncer compatibility on Supabase transaction pooler port 6543
+  if (raw.includes(":6543/") && !raw.includes("pgbouncer=true")) {
+    const sep = raw.includes("?") ? "&" : "?";
+    return `${raw}${sep}pgbouncer=true`;
+  }
+
+  return raw;
 }
 
 function createPrismaClient() {

@@ -25,7 +25,9 @@ export async function POST(req: NextRequest) {
     const supabase = await createSupabaseServerClient();
 
     let authenticatedViaSupabase = false;
+    let supabaseUserId: string | undefined;
     let supabaseMeta: Record<string, unknown> = {};
+    let supabaseErrorMsg: string | null = null;
 
     if (supabase) {
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -34,17 +36,25 @@ export async function POST(req: NextRequest) {
       });
       if (!error && data.user) {
         authenticatedViaSupabase = true;
+        supabaseUserId = data.user.id;
         supabaseMeta = (data.user.user_metadata ?? {}) as Record<string, unknown>;
+      } else if (error) {
+        supabaseErrorMsg = error.message;
       }
     }
 
     let user = await prisma.user.findUnique({ where: { email } });
 
     if (authenticatedViaSupabase) {
-      // Ensure PostgreSQL profile exists for Supabase Auth user
+      const metaRole =
+        supabaseMeta.role === "DRIVER" || supabaseMeta.role === "PASSENGER"
+          ? supabaseMeta.role
+          : "PASSENGER";
+
       if (!user) {
         user = await prisma.user.create({
           data: {
+            ...(supabaseUserId ? { id: supabaseUserId } : {}),
             email,
             name:
               typeof supabaseMeta.name === "string" && supabaseMeta.name.trim()
@@ -55,16 +65,16 @@ export async function POST(req: NextRequest) {
                 ? supabaseMeta.phone.trim()
                 : "+201000000000",
             bio: typeof supabaseMeta.bio === "string" ? supabaseMeta.bio : "",
-            passwordHash: "supabase_auth_managed",
-            role: "USER",
+            passwordHash: null,
+            role: metaRole,
           },
         });
       }
     } else {
-      // Fallback for seeded accounts or local dev without Supabase Auth
-      if (!user) {
+      // Fallback for seeded PostgreSQL accounts
+      if (!user || !user.passwordHash) {
         return NextResponse.json(
-          { error: "Invalid email or password" },
+          { error: supabaseErrorMsg || "Invalid email or password" },
           { status: 401 }
         );
       }
@@ -118,6 +128,8 @@ export async function POST(req: NextRequest) {
     return res;
   } catch (error) {
     console.error("Login error:", error);
-    return NextResponse.json({ error: "Failed to log in" }, { status: 500 });
+    const detail =
+      error instanceof Error ? error.message : "Unexpected login error";
+    return NextResponse.json({ error: detail }, { status: 500 });
   }
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import {
   FormEvent,
   useCallback,
@@ -62,7 +63,7 @@ function getSnapOffsetPx(snap: SheetSnap, viewportH: number): number {
 }
 
 export function MapHomeWorkspace() {
-  const { openDrawer } = useAppShell();
+  const { user, openDrawer } = useAppShell();
 
   // Map & H3 Search State
   const [lat, setLat] = useState(30.5877);
@@ -618,12 +619,30 @@ export function MapHomeWorkspace() {
           <button
             type="button"
             onClick={() => setSheetSnap("half")}
-            className="pointer-events-auto flex max-w-xs items-center gap-2 rounded-2xl bg-white/95 px-4 py-2 text-xs font-bold text-[#050412] shadow-md backdrop-blur transition hover:bg-white"
+            className="pointer-events-auto flex max-w-[180px] items-center gap-2 rounded-2xl bg-white/95 px-3.5 py-2 text-xs font-bold text-[#050412] shadow-md backdrop-blur transition hover:bg-white sm:max-w-xs"
           >
             <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-[#1E90FF]" />
             <span className="truncate">Pickup: {pickupLabel}</span>
           </button>
         </div>
+
+        {/* Floating Top-End Sign In & Register Buttons on Map when logged out */}
+        {!user && (
+          <div className="absolute end-4 top-4 z-20 flex items-center gap-1.5">
+            <Link
+              href="/login"
+              className="rounded-xl border border-[#DCE3EE] bg-white/95 px-3 py-2 text-xs font-bold text-[#050412] shadow-md backdrop-blur transition hover:bg-white"
+            >
+              Sign In
+            </Link>
+            <Link
+              href="/register"
+              className="rounded-xl bg-[#1E90FF] px-3 py-2 text-xs font-bold text-white shadow-[0_4px_14px_rgba(30,144,255,0.35)] transition hover:bg-[#1574D6]"
+            >
+              Register
+            </Link>
+          </div>
+        )}
 
         {/* Desktop Floating City Presets Bar */}
         <div className="absolute bottom-5 start-4 z-10 hidden flex-wrap gap-1.5 lg:flex">

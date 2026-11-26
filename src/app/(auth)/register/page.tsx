@@ -149,11 +149,12 @@ export default function RegisterPage() {
             </label>
             <input
               type="email"
+              dir="ltr"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@example.com"
-              className="mt-1.5 w-full rounded-[12px] border border-[#DCE3EE] bg-white px-3.5 py-2.5 text-sm focus:border-[#1E90FF] focus:outline-none"
+              className="mt-1.5 w-full rounded-[12px] border border-[#DCE3EE] bg-white px-3.5 py-2.5 text-left text-sm focus:border-[#1E90FF] focus:outline-none"
             />
           </div>
 
@@ -163,11 +164,12 @@ export default function RegisterPage() {
             </label>
             <input
               type="tel"
+              dir="ltr"
               required
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
-              placeholder="+201012345678"
-              className="mt-1.5 w-full rounded-[12px] border border-[#DCE3EE] bg-white px-3.5 py-2.5 text-sm focus:border-[#1E90FF] focus:outline-none"
+              placeholder="+201000000000"
+              className="mt-1.5 w-full rounded-[12px] border border-[#DCE3EE] bg-white px-3.5 py-2.5 text-left text-sm focus:border-[#1E90FF] focus:outline-none"
             />
           </div>
 

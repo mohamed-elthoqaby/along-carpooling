@@ -336,7 +336,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 </button>
               </div>
 
-              {user ? (
+              {user && (
                 <Link
                   href="/profile"
                   className="mt-5 flex items-center justify-between rounded-[14px] bg-[#F7F9FC] p-3"
@@ -369,23 +369,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   </div>
                   <ChevronRight className="h-4 w-4 text-[#5E6878]" />
                 </Link>
-              ) : (
-                <div className="mt-5 grid grid-cols-2 gap-2">
-                  <Link
-                    href="/login"
-                    className="along-btn-primary flex items-center justify-center gap-1.5 py-2.5 text-xs"
-                  >
-                    <LogIn className="h-4 w-4" />
-                    Sign In
-                  </Link>
-                  <Link
-                    href="/register"
-                    className="along-btn-secondary flex items-center justify-center gap-1.5 py-2.5 text-xs"
-                  >
-                    <UserPlus className="h-4 w-4" />
-                    Register
-                  </Link>
-                </div>
               )}
             </div>
 
@@ -448,25 +431,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   {dir === "ltr" ? "EN · LTR" : "AR · RTL"}
                 </span>
               </button>
-
-              {!user && (
-                <div className="mt-2 space-y-1 border-t border-[#E9EEF5] pt-2">
-                  <Link
-                    href="/login"
-                    className="flex items-center gap-3 rounded-[12px] px-3.5 py-3 text-sm font-semibold text-[#1E90FF] hover:bg-[#EBF5FF]"
-                  >
-                    <LogIn className="h-5 w-5" />
-                    Sign In
-                  </Link>
-                  <Link
-                    href="/register"
-                    className="flex items-center gap-3 rounded-[12px] px-3.5 py-3 text-sm font-semibold text-[#050412] hover:bg-[#F7F9FC]"
-                  >
-                    <UserPlus className="h-5 w-5 text-[#1E90FF]" />
-                    Register (Passenger / Driver)
-                  </Link>
-                </div>
-              )}
 
               {user?.role === "ADMIN" && (
                 <Link

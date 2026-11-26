@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { AUTH_COOKIE_NAME, hashPassword, signToken } from "@/lib/auth";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import {
+  createSupabaseAdminClient,
+  createSupabaseServerClient,
+} from "@/lib/supabase/server";
 
 const registerSchema = z.object({
   name: z.string().trim().min(2, "Name must be at least 2 characters"),
@@ -35,10 +38,38 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 1. Register user in Supabase Auth when configured
-    let supabaseSessionCreated = false;
+    // 1. Create user in Supabase Auth (prefer Admin API with auto-confirm if service role key is set)
+    let supabaseUserId: string | undefined;
+    const adminSupabase = createSupabaseAdminClient();
     const supabase = await createSupabaseServerClient();
-    if (supabase) {
+
+    if (adminSupabase) {
+      const { data: created, error: adminErr } =
+        await adminSupabase.auth.admin.createUser({
+          email,
+          password,
+          email_confirm: true,
+          user_metadata: { name, phone, role, bio: bio ?? "" },
+        });
+
+      if (adminErr) {
+        const msg = adminErr.message || "Supabase Auth user creation failed";
+        if (msg.toLowerCase().includes("already")) {
+          return NextResponse.json(
+            { error: "Email is already registered in Supabase Auth" },
+            { status: 409 }
+          );
+        }
+        return NextResponse.json({ error: msg }, { status: 400 });
+      }
+
+      supabaseUserId = created.user?.id;
+
+      // Immediately sign in to establish Supabase SSR cookies
+      if (supabase) {
+        await supabase.auth.signInWithPassword({ email, password });
+      }
+    } else if (supabase) {
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
@@ -57,13 +88,23 @@ export async function POST(req: NextRequest) {
         }
         return NextResponse.json({ error: msg }, { status: 400 });
       }
-      supabaseSessionCreated = Boolean(authData.session);
+
+      supabaseUserId = authData.user?.id;
     }
 
-    // 2. Sync user profile record in PostgreSQL via Prisma
+    // 2. Sync user profile into PostgreSQL via Prisma upsert
     const passwordHash = await hashPassword(password);
-    const user = await prisma.user.create({
-      data: {
+    const user = await prisma.user.upsert({
+      where: { email },
+      update: {
+        name,
+        phone,
+        bio: bio ?? "",
+        role,
+        passwordHash,
+      },
+      create: {
+        ...(supabaseUserId ? { id: supabaseUserId } : {}),
         name,
         email,
         passwordHash,
@@ -92,11 +133,7 @@ export async function POST(req: NextRequest) {
     });
 
     const res = NextResponse.json(
-      {
-        user,
-        supabaseAuth: Boolean(supabase),
-        emailConfirmationPending: Boolean(supabase && !supabaseSessionCreated),
-      },
+      { user, supabaseAuth: Boolean(adminSupabase || supabase) },
       { status: 201 }
     );
     res.cookies.set(AUTH_COOKIE_NAME, token, {
@@ -110,9 +147,8 @@ export async function POST(req: NextRequest) {
     return res;
   } catch (error) {
     console.error("Register error:", error);
-    return NextResponse.json(
-      { error: "Failed to register user" },
-      { status: 500 }
-    );
+    const detail =
+      error instanceof Error ? error.message : "Unexpected registration error";
+    return NextResponse.json({ error: detail }, { status: 500 });
   }
 }

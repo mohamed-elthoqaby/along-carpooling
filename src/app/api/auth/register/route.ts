@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { AUTH_COOKIE_NAME, hashPassword, signToken } from "@/lib/auth";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const registerSchema = z.object({
   name: z.string().trim().min(2, "Name must be at least 2 characters"),
@@ -33,6 +34,32 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // 1. Register user in Supabase Auth when configured
+    let supabaseSessionCreated = false;
+    const supabase = await createSupabaseServerClient();
+    if (supabase) {
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: { name, phone, bio: bio ?? "" },
+        },
+      });
+
+      if (authError) {
+        const msg = authError.message || "Supabase Auth registration failed";
+        if (msg.toLowerCase().includes("already registered")) {
+          return NextResponse.json(
+            { error: "Email is already registered" },
+            { status: 409 }
+          );
+        }
+        return NextResponse.json({ error: msg }, { status: 400 });
+      }
+      supabaseSessionCreated = Boolean(authData.session);
+    }
+
+    // 2. Sync user profile record in PostgreSQL via Prisma
     const passwordHash = await hashPassword(password);
     const user = await prisma.user.create({
       data: {
@@ -56,6 +83,7 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    // Also set HTTP-only fallback session cookie so user is signed in immediately
     const token = await signToken({
       userId: user.id,
       email: user.email,
@@ -63,7 +91,10 @@ export async function POST(req: NextRequest) {
       role: user.role,
     });
 
-    const res = NextResponse.json({ user }, { status: 201 });
+    const res = NextResponse.json(
+      { user, supabaseAuth: Boolean(supabase), emailConfirmationPending: Boolean(supabase && !supabaseSessionCreated) },
+      { status: 201 }
+    );
     res.cookies.set(AUTH_COOKIE_NAME, token, {
       httpOnly: true,
       sameSite: "lax",

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { AUTH_COOKIE_NAME, signToken, verifyPassword } from "@/lib/auth";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const loginSchema = z.object({
   email: z.string().trim().email("Invalid email address").toLowerCase(),
@@ -21,24 +22,66 @@ export async function POST(req: NextRequest) {
     }
 
     const { email, password } = parsed.data;
-    const user = await prisma.user.findUnique({ where: { email } });
+    const supabase = await createSupabaseServerClient();
 
-    if (!user) {
-      return NextResponse.json(
-        { error: "Invalid email or password" },
-        { status: 401 }
-      );
+    let authenticatedViaSupabase = false;
+    let supabaseMeta: Record<string, unknown> = {};
+
+    if (supabase) {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      if (!error && data.user) {
+        authenticatedViaSupabase = true;
+        supabaseMeta = (data.user.user_metadata ?? {}) as Record<string, unknown>;
+      }
     }
 
-    const isValid = await verifyPassword(password, user.passwordHash);
-    if (!isValid) {
-      return NextResponse.json(
-        { error: "Invalid email or password" },
-        { status: 401 }
-      );
+    let user = await prisma.user.findUnique({ where: { email } });
+
+    if (authenticatedViaSupabase) {
+      // Ensure PostgreSQL profile exists for Supabase Auth user
+      if (!user) {
+        user = await prisma.user.create({
+          data: {
+            email,
+            name:
+              typeof supabaseMeta.name === "string" && supabaseMeta.name.trim()
+                ? supabaseMeta.name.trim()
+                : email.split("@")[0],
+            phone:
+              typeof supabaseMeta.phone === "string" && supabaseMeta.phone.trim()
+                ? supabaseMeta.phone.trim()
+                : "+201000000000",
+            bio: typeof supabaseMeta.bio === "string" ? supabaseMeta.bio : "",
+            passwordHash: "supabase_auth_managed",
+            role: "USER",
+          },
+        });
+      }
+    } else {
+      // Fallback for seeded accounts or local dev without Supabase Auth
+      if (!user) {
+        return NextResponse.json(
+          { error: "Invalid email or password" },
+          { status: 401 }
+        );
+      }
+
+      const isValid = await verifyPassword(password, user.passwordHash);
+      if (!isValid) {
+        return NextResponse.json(
+          { error: "Invalid email or password" },
+          { status: 401 }
+        );
+      }
     }
 
     if (user.isBanned) {
+      if (supabase) {
+        await supabase.auth.signOut().catch(() => {});
+      }
       return NextResponse.json(
         { error: "Account is banned" },
         { status: 403 }
@@ -61,6 +104,7 @@ export async function POST(req: NextRequest) {
         role: user.role,
         kycStatus: user.kycStatus,
       },
+      supabaseAuth: authenticatedViaSupabase,
     });
 
     res.cookies.set(AUTH_COOKIE_NAME, token, {

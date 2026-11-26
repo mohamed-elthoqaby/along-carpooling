@@ -316,6 +316,10 @@ const AlongMapInner = memo(function AlongMapInner({
       );
     }
 
+    map.on("load", () => {
+      syncNativeLayers(map);
+    });
+
     map.on("style.load", () => {
       syncNativeLayers(map);
     });
@@ -428,8 +432,17 @@ const AlongMapInner = memo(function AlongMapInner({
 
   // Update native GeoJSON layers whenever path or points change
   useEffect(() => {
-    if (!mapRef.current) return;
-    syncNativeLayers(mapRef.current);
+    const map = mapRef.current;
+    if (!map) return;
+    if (map.isStyleLoaded()) {
+      syncNativeLayers(map);
+    } else {
+      const onReady = () => syncNativeLayers(map);
+      map.once("idle", onReady);
+      return () => {
+        map.off("idle", onReady);
+      };
+    }
   }, [roadPath, points, selectedRoute, syncNativeLayers]);
 
   // ResizeObserver for smooth desktop side-panel transitions

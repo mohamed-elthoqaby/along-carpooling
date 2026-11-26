@@ -652,7 +652,7 @@ export function MapHomeWorkspace() {
         </div>
 
         {/* Desktop Floating City Presets Bar */}
-        <div className="absolute bottom-5 start-4 z-10 hidden flex-wrap gap-1.5 lg:flex">
+        <div className="absolute bottom-10 start-4 z-10 hidden flex-wrap gap-1.5 lg:flex">
           {CITY_PRESETS.map((city) => (
             <button
               key={city.name}

@@ -1,10 +1,9 @@
 "use client";
 
-import { memo, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import * as maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { MapboxOverlay } from "@deck.gl/mapbox";
-import { PathLayer, ScatterplotLayer } from "@deck.gl/layers";
+import { Moon, Sun } from "lucide-react";
 
 export interface MapPointItem {
   id: string;
@@ -37,26 +36,16 @@ export interface AlongMapProps {
   showControls?: boolean;
 }
 
-const OSM_STYLE: maplibregl.StyleSpecification = {
-  version: 8,
-  sources: {
-    osm: {
-      type: "raster",
-      tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
-      tileSize: 256,
-      attribution: "© OpenStreetMap contributors",
-    },
-  },
-  layers: [
-    {
-      id: "osm-tiles",
-      type: "raster",
-      source: "osm",
-      minzoom: 0,
-      maxzoom: 19,
-    },
-  ],
-};
+const VECTOR_STYLES = {
+  light: "https://tiles.openfreemap.org/styles/bright",
+  dark: "https://tiles.openfreemap.org/styles/dark",
+} as const;
+
+const ROUTE_SOURCE_ID = "along-route-source";
+const ROUTE_CASING_LAYER_ID = "along-route-casing";
+const ROUTE_LINE_LAYER_ID = "along-route-line";
+const ENDPOINTS_SOURCE_ID = "along-endpoints-source";
+const ENDPOINTS_LAYER_ID = "along-endpoints-layer";
 
 function createUserPinElement(tagText: string): HTMLDivElement {
   const wrap = document.createElement("div");
@@ -135,7 +124,7 @@ function createPricePillElement(point: MapPointItem): HTMLButtonElement {
 
 const AlongMapInner = memo(function AlongMapInner({
   center = [30.5877, 31.502],
-  zoom = 10,
+  zoom = 11,
   recenterNonce = 0,
   points = [],
   selectedRoute = null,
@@ -146,14 +135,154 @@ const AlongMapInner = memo(function AlongMapInner({
 }: AlongMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
-  const overlayRef = useRef<MapboxOverlay | null>(null);
   const markersRef = useRef<maplibregl.Marker[]>([]);
   const clickCallbackRef = useRef(onMapClick);
   clickCallbackRef.current = onMapClick;
 
+  const [mapTheme, setMapTheme] = useState<"light" | "dark">("light");
   const [roadPath, setRoadPath] = useState<[number, number][] | null>(null);
 
-  // Initialize MapLibre GL + deck.gl overlay once
+  const roadPathRef = useRef<[number, number][] | null>(null);
+  roadPathRef.current = roadPath;
+  const pointsRef = useRef<MapPointItem[]>(points);
+  pointsRef.current = points;
+  const selectedRouteRef = useRef<RouteArcItem | null>(selectedRoute);
+  selectedRouteRef.current = selectedRoute;
+  const themeRef = useRef<"light" | "dark">(mapTheme);
+  themeRef.current = mapTheme;
+
+  // Sync native GPU GeoJSON sources & layers (runs on style.load and data updates)
+  const syncNativeLayers = useCallback((map: maplibregl.Map) => {
+    if (!map.isStyleLoaded()) return;
+
+    const coords = roadPathRef.current;
+    const routeGeoJson: GeoJSON.FeatureCollection = {
+      type: "FeatureCollection",
+      features:
+        coords && coords.length >= 2
+          ? [
+              {
+                type: "Feature",
+                properties: {},
+                geometry: {
+                  type: "LineString",
+                  coordinates: coords,
+                },
+              },
+            ]
+          : [],
+    };
+
+    const existingRoute = map.getSource(ROUTE_SOURCE_ID) as
+      | maplibregl.GeoJSONSource
+      | undefined;
+    if (existingRoute) {
+      existingRoute.setData(routeGeoJson);
+    } else {
+      map.addSource(ROUTE_SOURCE_ID, {
+        type: "geojson",
+        data: routeGeoJson,
+      });
+
+      map.addLayer({
+        id: ROUTE_CASING_LAYER_ID,
+        type: "line",
+        source: ROUTE_SOURCE_ID,
+        layout: {
+          "line-cap": "round",
+          "line-join": "round",
+        },
+        paint: {
+          "line-color": themeRef.current === "dark" ? "#050412" : "#FFFFFF",
+          "line-width": 8,
+          "line-opacity": 0.95,
+        },
+      });
+
+      map.addLayer({
+        id: ROUTE_LINE_LAYER_ID,
+        type: "line",
+        source: ROUTE_SOURCE_ID,
+        layout: {
+          "line-cap": "round",
+          "line-join": "round",
+        },
+        paint: {
+          "line-color": "#1E90FF",
+          "line-width": 4.5,
+          "line-opacity": 1,
+        },
+      });
+    }
+
+    // Native GPU endpoint circles (Origin = Green, Dest = Red)
+    const endpointFeatures: GeoJSON.Feature[] = [];
+    for (const p of pointsRef.current) {
+      if (p.kind === "origin" || p.kind === "dest") {
+        endpointFeatures.push({
+          type: "Feature",
+          properties: { color: p.kind === "dest" ? "#DC2626" : "#16A34A" },
+          geometry: { type: "Point", coordinates: [p.lng, p.lat] },
+        });
+      }
+    }
+    if (selectedRouteRef.current) {
+      endpointFeatures.push(
+        {
+          type: "Feature",
+          properties: { color: "#16A34A" },
+          geometry: {
+            type: "Point",
+            coordinates: [
+              selectedRouteRef.current.originLng,
+              selectedRouteRef.current.originLat,
+            ],
+          },
+        },
+        {
+          type: "Feature",
+          properties: { color: "#DC2626" },
+          geometry: {
+            type: "Point",
+            coordinates: [
+              selectedRouteRef.current.destLng,
+              selectedRouteRef.current.destLat,
+            ],
+          },
+        }
+      );
+    }
+
+    const endpointsGeoJson: GeoJSON.FeatureCollection = {
+      type: "FeatureCollection",
+      features: endpointFeatures,
+    };
+
+    const existingEndpoints = map.getSource(ENDPOINTS_SOURCE_ID) as
+      | maplibregl.GeoJSONSource
+      | undefined;
+    if (existingEndpoints) {
+      existingEndpoints.setData(endpointsGeoJson);
+    } else {
+      map.addSource(ENDPOINTS_SOURCE_ID, {
+        type: "geojson",
+        data: endpointsGeoJson,
+      });
+      map.addLayer({
+        id: ENDPOINTS_LAYER_ID,
+        type: "circle",
+        source: ENDPOINTS_SOURCE_ID,
+        paint: {
+          "circle-radius": 8,
+          "circle-color": ["get", "color"],
+          "circle-stroke-color": "#FFFFFF",
+          "circle-stroke-width": 2.5,
+        },
+      });
+    }
+  }, []);
+
+  // Initialize MapLibre GL JS (Pure Vector Tiles, Google Maps Ergonomics)
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
 
@@ -163,11 +292,22 @@ const AlongMapInner = memo(function AlongMapInner({
 
     const map = new maplibregl.Map({
       container: containerRef.current,
-      style: OSM_STYLE,
+      style: VECTOR_STYLES.light,
       center: [center[1], center[0]],
       zoom,
-      attributionControl: { compact: true },
+      dragRotate: false,
+      touchPitch: false,
+      pitchWithRotate: false,
+      maxPitch: 0,
+      attributionControl: false,
+      fadeDuration: 150,
+      pixelRatio:
+        typeof window !== "undefined"
+          ? Math.min(window.devicePixelRatio || 1, 2)
+          : 1,
     });
+
+    map.addControl(new maplibregl.AttributionControl({ compact: true }), "bottom-left");
 
     if (showControls) {
       map.addControl(
@@ -176,11 +316,9 @@ const AlongMapInner = memo(function AlongMapInner({
       );
     }
 
-    const overlay = new MapboxOverlay({
-      interleaved: false,
-      layers: [],
+    map.on("style.load", () => {
+      syncNativeLayers(map);
     });
-    map.addControl(overlay as unknown as maplibregl.IControl);
 
     map.on("click", (e: maplibregl.MapMouseEvent) => {
       if (clickCallbackRef.current) {
@@ -192,7 +330,6 @@ const AlongMapInner = memo(function AlongMapInner({
     });
 
     mapRef.current = map;
-    overlayRef.current = overlay;
 
     return () => {
       for (const m of markersRef.current) {
@@ -200,22 +337,27 @@ const AlongMapInner = memo(function AlongMapInner({
       }
       markersRef.current = [];
       try {
-        overlay.finalize();
-      } catch {
-        // Ignore cleanup race
-      }
-      try {
         map.remove();
       } catch {
         // Ignore cleanup race
       }
       mapRef.current = null;
-      overlayRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Recenter smoothly when center/recenterNonce changes (when no route is active)
+  // Switch OpenFreeMap Light / Dark vector style cleanly
+  const isFirstThemeRef = useRef(true);
+  useEffect(() => {
+    if (isFirstThemeRef.current) {
+      isFirstThemeRef.current = false;
+      return;
+    }
+    if (!mapRef.current) return;
+    mapRef.current.setStyle(VECTOR_STYLES[mapTheme]);
+  }, [mapTheme]);
+
+  // Smooth recenter when no route is active
   useEffect(() => {
     if (!mapRef.current || selectedRoute) return;
     mapRef.current.easeTo({
@@ -224,7 +366,7 @@ const AlongMapInner = memo(function AlongMapInner({
     });
   }, [center[0], center[1], recenterNonce, selectedRoute]);
 
-  // Fetch real road-following OSRM route via /api/route when selectedRoute changes
+  // Fetch real road-following OSRM route when selectedRoute changes
   useEffect(() => {
     if (!selectedRoute) {
       setRoadPath(null);
@@ -258,8 +400,8 @@ const AlongMapInner = memo(function AlongMapInner({
             bounds.extend([lng, lat]);
           }
           mapRef.current.fitBounds(bounds, {
-            padding: { top: 72, bottom: 72, left: 64, right: 64 },
-            duration: 550,
+            padding: { top: 80, bottom: 80, left: 56, right: 56 },
+            duration: 500,
             maxZoom: 13,
           });
         }
@@ -284,6 +426,13 @@ const AlongMapInner = memo(function AlongMapInner({
     selectedRoute?.destLng,
   ]);
 
+  // Update native GeoJSON layers whenever path or points change
+  useEffect(() => {
+    if (!mapRef.current) return;
+    syncNativeLayers(mapRef.current);
+  }, [roadPath, points, selectedRoute, syncNativeLayers]);
+
+  // ResizeObserver for smooth desktop side-panel transitions
   useEffect(() => {
     if (!containerRef.current || !mapRef.current) return;
     const observer = new ResizeObserver(() => {
@@ -293,9 +442,7 @@ const AlongMapInner = memo(function AlongMapInner({
     return () => observer.disconnect();
   }, []);
 
-  // Render distinct MapLibre DOM Markers:
-  // - Single User/Pickup pin (#050412 + translucent blue halo + "You"/"Pickup")
-  // - Clickable Price Pill Markers for nearby rides ("95 EGP", "75 EGP", etc.)
+  // Render crisp DOM Markers (single User/Pickup pin + clickable Price Pill Markers)
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
@@ -305,7 +452,6 @@ const AlongMapInner = memo(function AlongMapInner({
     }
     markersRef.current = [];
 
-    // Ensure at most ONE user/center marker
     const centerPoint = points.find((p) => p.kind === "center");
     if (centerPoint) {
       const el = createUserPinElement(centerPoint.label || "Pickup");
@@ -315,7 +461,6 @@ const AlongMapInner = memo(function AlongMapInner({
       markersRef.current.push(marker);
     }
 
-    // Price Pill markers for nearby rides
     for (const p of points) {
       if (p.kind !== "ride") continue;
       const el = createPricePillElement(p);
@@ -326,84 +471,6 @@ const AlongMapInner = memo(function AlongMapInner({
     }
   }, [points]);
 
-  // Update deck.gl PathLayer (real road route) + origin/dest endpoint dots
-  useEffect(() => {
-    if (!overlayRef.current) return;
-
-    const endpointPoints: MapPointItem[] = points.filter(
-      (p) => p.kind === "origin" || p.kind === "dest"
-    );
-
-    if (selectedRoute) {
-      endpointPoints.push(
-        {
-          id: `${selectedRoute.id}-route-origin`,
-          lat: selectedRoute.originLat,
-          lng: selectedRoute.originLng,
-          label: "Pickup",
-          kind: "origin",
-        },
-        {
-          id: `${selectedRoute.id}-route-dest`,
-          lat: selectedRoute.destLat,
-          lng: selectedRoute.destLng,
-          label: "Drop-off",
-          kind: "dest",
-        }
-      );
-    }
-
-    const pathData = roadPath ? [{ path: roadPath }] : [];
-
-    const layers = [
-      ...(pathData.length > 0
-        ? [
-            new PathLayer<{ path: [number, number][] }>({
-              id: "along-route-casing-layer",
-              data: pathData,
-              getPath: (d) => d.path,
-              getColor: [255, 255, 255, 245],
-              widthUnits: "pixels",
-              getWidth: 8,
-              widthMinPixels: 7,
-              capRounded: true,
-              jointRounded: true,
-            }),
-            new PathLayer<{ path: [number, number][] }>({
-              id: "along-route-path-layer",
-              data: pathData,
-              getPath: (d) => d.path,
-              getColor: [30, 144, 255, 255],
-              widthUnits: "pixels",
-              getWidth: 5,
-              widthMinPixels: 4,
-              capRounded: true,
-              jointRounded: true,
-            }),
-          ]
-        : []),
-      ...(endpointPoints.length > 0
-        ? [
-            new ScatterplotLayer<MapPointItem>({
-              id: "along-endpoints-layer",
-              data: endpointPoints,
-              stroked: true,
-              filled: true,
-              radiusUnits: "pixels",
-              getPosition: (d) => [d.lng, d.lat],
-              getRadius: 9,
-              getFillColor: (d) =>
-                d.kind === "dest" ? [220, 38, 38, 245] : [22, 163, 74, 245],
-              getLineColor: [255, 255, 255, 255],
-              lineWidthMinPixels: 2.5,
-            }),
-          ]
-        : []),
-    ];
-
-    overlayRef.current.setProps({ layers });
-  }, [points, selectedRoute, roadPath]);
-
   return (
     <div
       className={`relative w-full overflow-hidden ${
@@ -413,6 +480,21 @@ const AlongMapInner = memo(function AlongMapInner({
       }`}
     >
       <div ref={containerRef} className="h-full w-full" />
+
+      {/* Crisp Light / Dark Vector Style Toggle */}
+      <button
+        type="button"
+        onClick={() => setMapTheme((t) => (t === "light" ? "dark" : "light"))}
+        title={`Switch to ${mapTheme === "light" ? "Dark" : "Light"} map`}
+        aria-label="Toggle map style"
+        className="absolute bottom-[42dvh] end-3 z-10 flex h-10 w-10 items-center justify-center rounded-full border border-[#DCE3EE] bg-white/95 text-[#050412] shadow-md backdrop-blur transition hover:bg-white active:scale-95 lg:bottom-36 lg:end-3"
+      >
+        {mapTheme === "light" ? (
+          <Moon className="h-4 w-4" />
+        ) : (
+          <Sun className="h-4 w-4 text-[#F59E0B]" />
+        )}
+      </button>
     </div>
   );
 });

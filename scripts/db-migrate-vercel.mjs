@@ -37,8 +37,8 @@ try {
   console.log("[db-migrate-vercel] prisma db push succeeded.");
 }
 
-// Idempotent initial seed: only seeds Egyptian rides & admin if the database has 0 rides
-console.log("[db-migrate-vercel] Checking whether initial seed is needed...");
+// Guarantee Role enum values & nullable passwordHash + idempotent initial seed
+console.log("[db-migrate-vercel] Ensuring Role enum values and initial seed...");
 try {
   const { PrismaClient } = await import("@prisma/client");
   const bcrypt = (await import("bcryptjs")).default;
@@ -49,6 +49,13 @@ try {
   });
 
   try {
+    // Idempotent enum & column guards (safe even if DB was initialized with older enum)
+    await prisma.$executeRawUnsafe(`ALTER TYPE "Role" ADD VALUE IF NOT EXISTS 'PASSENGER';`);
+    await prisma.$executeRawUnsafe(`ALTER TYPE "Role" ADD VALUE IF NOT EXISTS 'DRIVER';`);
+    await prisma.$executeRawUnsafe(`ALTER TYPE "Role" ADD VALUE IF NOT EXISTS 'ADMIN';`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE "User" ALTER COLUMN "passwordHash" DROP NOT NULL;`);
+    console.log("[db-migrate-vercel] Verified Role enum (PASSENGER, DRIVER, ADMIN) and nullable passwordHash.");
+
     // Always ensure admin@along.com exists without overwriting other users
     const adminExists = await prisma.user.findUnique({
       where: { email: "admin@along.com" },

@@ -604,48 +604,51 @@ export function MapHomeWorkspace() {
           borderless
         />
 
-        {/* Mobile Floating Top-Start Menu Button (☰) */}
-        <button
-          type="button"
-          onClick={openDrawer}
-          aria-label="Open navigation drawer"
-          className="absolute start-3 top-3.5 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-white text-[#050412] shadow-md transition active:scale-95 lg:hidden"
-        >
-          <Menu className="h-5 w-5" />
-        </button>
-
-        {/* Floating Top-End Sign In & Register Buttons on Map when logged out */}
-        {!user && (
-          <div className="absolute end-3 top-3.5 z-20 flex items-center gap-1.5">
-            <Link
-              href="/login"
-              className="rounded-xl border border-[#DCE3EE] bg-white/95 px-3 py-2 text-xs font-bold text-[#050412] shadow-md backdrop-blur transition hover:bg-white"
+        {/* Unified Non-Overlapping Top Map Bar (Google Maps / inDrive Style) */}
+        <div className="pointer-events-none absolute inset-x-3 top-3 z-20 flex items-center justify-between gap-2">
+          {/* Start: Mobile Menu Button (☰) */}
+          <div className="flex shrink-0 items-center">
+            <button
+              type="button"
+              onClick={openDrawer}
+              aria-label="Open navigation drawer"
+              className="pointer-events-auto flex h-10 w-10 items-center justify-center rounded-full bg-white text-[#050412] shadow-md transition active:scale-95 lg:hidden"
             >
-              Sign In
-            </Link>
-            <Link
-              href="/register"
-              className="rounded-xl bg-[#1E90FF] px-3 py-2 text-xs font-bold text-white shadow-[0_4px_14px_rgba(30,144,255,0.35)] transition hover:bg-[#1574D6]"
-            >
-              Register
-            </Link>
+              <Menu className="h-5 w-5" />
+            </button>
           </div>
-        )}
 
-        {/* Floating Pickup Point Pill (sits cleanly below top row on mobile when logged out to prevent overlap) */}
-        <div
-          className={`pointer-events-none absolute inset-x-0 z-10 flex justify-center px-16 ${
-            !user ? "top-16 lg:top-4" : "top-3.5"
-          }`}
-        >
-          <button
-            type="button"
-            onClick={() => setSheetSnap("half")}
-            className="pointer-events-auto flex max-w-[220px] items-center gap-2 rounded-2xl bg-white/95 px-3.5 py-2 text-xs font-bold text-[#050412] shadow-md backdrop-blur transition hover:bg-white sm:max-w-xs"
-          >
-            <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-[#1E90FF]" />
-            <span className="truncate">Pickup: {pickupLabel}</span>
-          </button>
+          {/* Center: Pickup Point Pill (flex-1 + truncate so it NEVER collides) */}
+          <div className="flex min-w-0 flex-1 justify-center">
+            <button
+              type="button"
+              onClick={() => setSheetSnap("half")}
+              className="pointer-events-auto flex max-w-[60vw] items-center gap-2 rounded-2xl bg-white/95 px-3.5 py-2 text-xs font-bold text-[#050412] shadow-md backdrop-blur transition hover:bg-white sm:max-w-xs"
+            >
+              <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-[#1E90FF]" />
+              <span className="truncate">Pickup: {pickupLabel}</span>
+            </button>
+          </div>
+
+          {/* End: Compact Auth Actions (Single Sign In pill on narrow phones; Sign In + Register on >= sm) */}
+          <div className="flex shrink-0 items-center gap-1.5">
+            {!user && (
+              <>
+                <Link
+                  href="/login"
+                  className="pointer-events-auto rounded-full border border-[#DCE3EE] bg-white/95 px-3.5 py-2 text-xs font-bold text-[#050412] shadow-md backdrop-blur transition hover:bg-white"
+                >
+                  Sign In
+                </Link>
+                <Link
+                  href="/register"
+                  className="pointer-events-auto hidden rounded-full bg-[#1E90FF] px-3.5 py-2 text-xs font-bold text-white shadow-[0_4px_14px_rgba(30,144,255,0.35)] transition hover:bg-[#1574D6] sm:inline-flex"
+                >
+                  Register
+                </Link>
+              </>
+            )}
+          </div>
         </div>
 
         {/* Desktop Floating City Presets Bar */}

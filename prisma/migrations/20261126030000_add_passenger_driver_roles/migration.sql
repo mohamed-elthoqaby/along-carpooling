@@ -1,0 +1,5 @@
+-- Safely add PASSENGER and DRIVER to Role enum and make passwordHash nullable for Supabase Auth
+ALTER TYPE "Role" ADD VALUE IF NOT EXISTS 'PASSENGER';
+ALTER TYPE "Role" ADD VALUE IF NOT EXISTS 'DRIVER';
+ALTER TYPE "Role" ADD VALUE IF NOT EXISTS 'ADMIN';
+ALTER TABLE "User" ALTER COLUMN "passwordHash" DROP NOT NULL;

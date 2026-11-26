@@ -1,4 +1,4 @@
-const CACHE_NAME = "along-shell-v3";
+const CACHE_NAME = "along-v4";
 const STATIC_ASSETS = [
   "/manifest.webmanifest",
   "/icons/icon-192.png",
@@ -38,7 +38,7 @@ self.addEventListener("fetch", (event) => {
 
   const url = new URL(request.url);
 
-  // Immediately bypass ALL cross-origin requests (OSM tiles, OSRM, fonts, etc.)
+  // Immediately bypass ALL cross-origin requests (OpenFreeMap vector tiles, glyphs, sprites, OSRM)
   if (url.origin !== self.location.origin) return;
 
   // Immediately bypass API routes and Next.js internal/HMR assets

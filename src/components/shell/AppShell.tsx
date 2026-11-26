@@ -18,6 +18,7 @@ import {
   ShieldCheck,
   Star,
   User,
+  UserPlus,
   X,
 } from "lucide-react";
 import { AlongLogo } from "@/components/ui/AlongLogo";
@@ -27,7 +28,7 @@ export interface ShellUser {
   id: string;
   name: string;
   email: string;
-  role: "USER" | "ADMIN";
+  role: "PASSENGER" | "DRIVER" | "USER" | "ADMIN";
   kycStatus?: "UNVERIFIED" | "PENDING" | "VERIFIED";
   stats?: {
     averageRating: number | null;
@@ -89,6 +90,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     await fetch("/api/auth/logout", { method: "POST" });
     setUser(null);
     setDrawerOpen(false);
+    window.dispatchEvent(new Event("along:auth-changed"));
     router.push("/login");
     router.refresh();
   }
@@ -201,8 +203,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             )}
           </nav>
 
-          {/* Bottom Utility Controls: Avatar, EN/AR Toggle, Login/Logout */}
-          <div className="flex flex-col items-center gap-2.5">
+          {/* Bottom Utility Controls: EN/AR Toggle + Auth Buttons or User Avatar */}
+          <div className="flex flex-col items-center gap-2">
             <button
               type="button"
               onClick={toggleDirection}
@@ -216,7 +218,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <>
                 <Link
                   href="/profile"
-                  title={user.name}
+                  title={`${user.name} (${user.role})`}
                   className="flex h-9 w-9 items-center justify-center rounded-full bg-[#050412] text-xs font-bold text-white"
                 >
                   {initials}
@@ -231,20 +233,39 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 </button>
               </>
             ) : (
-              <Link
-                href="/login"
-                title="Sign In"
-                className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#EBF5FF] text-[#1E90FF] hover:bg-[#1E90FF] hover:text-white"
-              >
-                <LogIn className="h-4 w-4" />
-              </Link>
+              <>
+                <Link
+                  href="/login"
+                  title="Sign In"
+                  className={`flex flex-col items-center justify-center rounded-xl px-2 py-1.5 text-[10px] font-bold transition ${
+                    isActive("/login")
+                      ? "bg-[#1E90FF] text-white"
+                      : "bg-[#EBF5FF] text-[#1E90FF] hover:bg-[#1E90FF] hover:text-white"
+                  }`}
+                >
+                  <LogIn className="h-4 w-4" />
+                  <span className="mt-0.5">Sign In</span>
+                </Link>
+                <Link
+                  href="/register"
+                  title="Register Account"
+                  className={`flex flex-col items-center justify-center rounded-xl px-1.5 py-1.5 text-[10px] font-bold transition ${
+                    isActive("/register")
+                      ? "bg-[#1E90FF] text-white"
+                      : "bg-[#050412] text-white hover:opacity-90"
+                  }`}
+                >
+                  <UserPlus className="h-4 w-4" />
+                  <span className="mt-0.5">Join</span>
+                </Link>
+              </>
             )}
           </div>
         </aside>
 
         {/* MAIN VIEWPORT AREA */}
         <div className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
-          {/* Compact Mobile Header ONLY on secondary routes (NOT on Map-First Home `/`) */}
+          {/* Compact Mobile Header on secondary routes */}
           {!isMapHome && (
             <header className="flex h-14 shrink-0 items-center justify-between border-b border-[#DCE3EE] bg-white px-4 lg:hidden">
               <button
@@ -258,13 +279,23 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <Link href="/">
                 <AlongLogo size={28} showWordmark />
               </Link>
-              <button
-                type="button"
-                onClick={toggleDirection}
-                className="rounded-lg border border-[#DCE3EE] px-2.5 py-1 text-xs font-bold text-[#050412]"
-              >
-                {dir === "ltr" ? "AR" : "EN"}
-              </button>
+              <div className="flex items-center gap-1.5">
+                {!user && (
+                  <Link
+                    href="/login"
+                    className="rounded-lg bg-[#1E90FF] px-2.5 py-1.5 text-xs font-bold text-white"
+                  >
+                    Sign In
+                  </Link>
+                )}
+                <button
+                  type="button"
+                  onClick={toggleDirection}
+                  className="rounded-lg border border-[#DCE3EE] px-2 py-1 text-xs font-bold text-[#050412]"
+                >
+                  {dir === "ltr" ? "AR" : "EN"}
+                </button>
+              </div>
             </header>
           )}
 
@@ -323,27 +354,38 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                           <BadgeCheck className="h-4 w-4 text-[#1E90FF]" />
                         )}
                       </div>
-                      <div className="mt-0.5 flex items-center gap-1 text-xs text-[#5E6878]">
-                        <Star className="h-3.5 w-3.5 fill-[#F59E0B] text-[#F59E0B]" />
+                      <div className="mt-0.5 flex items-center gap-1.5 text-xs text-[#5E6878]">
+                        <span className="rounded bg-[#EBF5FF] px-1.5 py-0.5 text-[10px] font-bold text-[#1E90FF]">
+                          {user.role}
+                        </span>
+                        <Star className="h-3 w-3 fill-[#F59E0B] text-[#F59E0B]" />
                         <span className="font-semibold text-[#050412]">
                           {user.stats?.averageRating
-                            ? user.stats.averageRating.toFixed(2)
-                            : "5.00"}
+                            ? user.stats.averageRating.toFixed(1)
+                            : "5.0"}
                         </span>
-                        <span>({user.stats?.totalReviews ?? 0})</span>
                       </div>
                     </div>
                   </div>
                   <ChevronRight className="h-4 w-4 text-[#5E6878]" />
                 </Link>
               ) : (
-                <Link
-                  href="/login"
-                  className="mt-5 flex items-center justify-between rounded-[14px] bg-[#EBF5FF] p-3 text-sm font-bold text-[#1E90FF]"
-                >
-                  <span>Sign in to Along</span>
-                  <ChevronRight className="h-4 w-4" />
-                </Link>
+                <div className="mt-5 grid grid-cols-2 gap-2">
+                  <Link
+                    href="/login"
+                    className="along-btn-primary flex items-center justify-center gap-1.5 py-2.5 text-xs"
+                  >
+                    <LogIn className="h-4 w-4" />
+                    Sign In
+                  </Link>
+                  <Link
+                    href="/register"
+                    className="along-btn-secondary flex items-center justify-center gap-1.5 py-2.5 text-xs"
+                  >
+                    <UserPlus className="h-4 w-4" />
+                    Register
+                  </Link>
+                </div>
               )}
             </div>
 
@@ -406,6 +448,25 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   {dir === "ltr" ? "EN · LTR" : "AR · RTL"}
                 </span>
               </button>
+
+              {!user && (
+                <div className="mt-2 space-y-1 border-t border-[#E9EEF5] pt-2">
+                  <Link
+                    href="/login"
+                    className="flex items-center gap-3 rounded-[12px] px-3.5 py-3 text-sm font-semibold text-[#1E90FF] hover:bg-[#EBF5FF]"
+                  >
+                    <LogIn className="h-5 w-5" />
+                    Sign In
+                  </Link>
+                  <Link
+                    href="/register"
+                    className="flex items-center gap-3 rounded-[12px] px-3.5 py-3 text-sm font-semibold text-[#050412] hover:bg-[#F7F9FC]"
+                  >
+                    <UserPlus className="h-5 w-5 text-[#1E90FF]" />
+                    Register (Passenger / Driver)
+                  </Link>
+                </div>
+              )}
 
               {user?.role === "ADMIN" && (
                 <Link

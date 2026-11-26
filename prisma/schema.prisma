@@ -8,6 +8,8 @@ datasource db {
 }
 
 enum Role {
+  PASSENGER
+  DRIVER
   USER
   ADMIN
 }
@@ -59,7 +61,7 @@ model User {
   passwordHash String
   phone        String
   bio          String    @default("")
-  role         Role      @default(USER)
+  role         Role      @default(PASSENGER)
   isBanned     Boolean   @default(false)
   kycStatus    KycStatus @default(UNVERIFIED)
   kycIdNumber  String?

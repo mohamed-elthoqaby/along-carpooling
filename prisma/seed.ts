@@ -28,13 +28,14 @@ async function main() {
   await prisma.user.deleteMany();
 
   const passwordHash = await bcrypt.hash("Password123!", 10);
+  const adminPasswordHash = await bcrypt.hash("44696237H", 10);
 
-  // 1 Admin
+  // 1 Admin (admin@along.com / 44696237H)
   const admin = await prisma.user.create({
     data: {
       name: "Along Admin",
-      email: "admin@along.eg",
-      passwordHash,
+      email: "admin@along.com",
+      passwordHash: adminPasswordHash,
       phone: "+201000000001",
       bio: "Platform administrator & safety reviewer.",
       role: Role.ADMIN,
@@ -42,7 +43,7 @@ async function main() {
     },
   });
 
-  // 2 Verified Drivers (Unified USER role with Vehicles)
+  // 2 Verified Drivers (DRIVER role with Vehicles)
   const ahmed = await prisma.user.create({
     data: {
       name: "Ahmed Hassan",
@@ -50,7 +51,7 @@ async function main() {
       passwordHash,
       phone: "+201011112222",
       bio: "Daily commuter between Zagazig and Cairo. Quiet rides, punctual departures.",
-      role: Role.USER,
+      role: Role.DRIVER,
       kycStatus: KycStatus.VERIFIED,
       kycIdNumber: "29805121301234",
       vehicles: {
@@ -77,7 +78,7 @@ async function main() {
       passwordHash,
       phone: "+201022223333",
       bio: "Tech lead commuting New Cairo ↔ Smart Village. AC always on.",
-      role: Role.USER,
+      role: Role.DRIVER,
       kycStatus: KycStatus.VERIFIED,
       kycIdNumber: "29509010105678",
       vehicles: {
@@ -105,7 +106,7 @@ async function main() {
       passwordHash,
       phone: "+201033334444",
       bio: "Software engineer & frequent Cairo-Alexandria traveler.",
-      role: Role.USER,
+      role: Role.PASSENGER,
       kycStatus: KycStatus.VERIFIED,
       kycIdNumber: "29903150109988",
     },
@@ -118,7 +119,7 @@ async function main() {
       passwordHash,
       phone: "+201044445555",
       bio: "Computer science student commuting weekly.",
-      role: Role.USER,
+      role: Role.PASSENGER,
       kycStatus: KycStatus.PENDING,
       kycIdNumber: "30107221304455",
       kycNote: "National ID submitted for student commuter verification.",

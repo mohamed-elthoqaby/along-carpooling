@@ -9,6 +9,7 @@ const registerSchema = z.object({
   email: z.string().trim().email("Invalid email address").toLowerCase(),
   password: z.string().min(6, "Password must be at least 6 characters"),
   phone: z.string().trim().min(6, "Phone number is required"),
+  role: z.enum(["PASSENGER", "DRIVER"]).default("PASSENGER"),
   bio: z.string().trim().max(300).optional(),
 });
 
@@ -24,7 +25,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { name, email, password, phone, bio } = parsed.data;
+    const { name, email, password, phone, role, bio } = parsed.data;
 
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) {
@@ -42,7 +43,7 @@ export async function POST(req: NextRequest) {
         email,
         password,
         options: {
-          data: { name, phone, bio: bio ?? "" },
+          data: { name, phone, role, bio: bio ?? "" },
         },
       });
 
@@ -68,7 +69,7 @@ export async function POST(req: NextRequest) {
         passwordHash,
         phone,
         bio: bio ?? "",
-        role: "USER",
+        role,
       },
       select: {
         id: true,
@@ -83,7 +84,6 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // Also set HTTP-only fallback session cookie so user is signed in immediately
     const token = await signToken({
       userId: user.id,
       email: user.email,
@@ -92,7 +92,11 @@ export async function POST(req: NextRequest) {
     });
 
     const res = NextResponse.json(
-      { user, supabaseAuth: Boolean(supabase), emailConfirmationPending: Boolean(supabase && !supabaseSessionCreated) },
+      {
+        user,
+        supabaseAuth: Boolean(supabase),
+        emailConfirmationPending: Boolean(supabase && !supabaseSessionCreated),
+      },
       { status: 201 }
     );
     res.cookies.set(AUTH_COOKIE_NAME, token, {

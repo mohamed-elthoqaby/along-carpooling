@@ -102,9 +102,10 @@ export default function LoginPage() {
         </form>
 
         <div className="mt-5 rounded-[12px] bg-[#E9EEF5] p-3 text-xs text-[#5E6878]">
-          <p className="font-semibold text-[#050412]">Demo Accounts (Password123!):</p>
-          <p className="mt-1">Driver/User: ahmed@along.eg • salma@along.eg</p>
-          <p>Admin: admin@along.eg</p>
+          <p className="font-semibold text-[#050412]">Accounts:</p>
+          <p className="mt-1">Driver: ahmed@along.eg (Password123!)</p>
+          <p>Passenger: salma@along.eg (Password123!)</p>
+          <p>Admin: admin@along.com</p>
         </div>
 
         <p className="mt-5 text-center text-sm text-[#5E6878]">

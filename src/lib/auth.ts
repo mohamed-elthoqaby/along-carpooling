@@ -6,7 +6,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const AUTH_COOKIE_NAME = "along_token";
 
-export type UserRole = "USER" | "ADMIN";
+export type UserRole = "PASSENGER" | "DRIVER" | "USER" | "ADMIN";
 
 export interface SessionPayload {
   userId: string;
@@ -14,6 +14,8 @@ export interface SessionPayload {
   name: string;
   role: UserRole;
 }
+
+const VALID_ROLES = new Set<UserRole>(["PASSENGER", "DRIVER", "USER", "ADMIN"]);
 
 function getJwtSecret(): Uint8Array {
   const secret =
@@ -47,7 +49,8 @@ export async function verifyToken(token: string): Promise<SessionPayload | null>
       typeof payload.userId !== "string" ||
       typeof payload.email !== "string" ||
       typeof payload.name !== "string" ||
-      (payload.role !== "USER" && payload.role !== "ADMIN")
+      typeof payload.role !== "string" ||
+      !VALID_ROLES.has(payload.role as UserRole)
     ) {
       return null;
     }
@@ -55,19 +58,13 @@ export async function verifyToken(token: string): Promise<SessionPayload | null>
       userId: payload.userId,
       email: payload.email,
       name: payload.name,
-      role: payload.role,
+      role: payload.role as UserRole,
     };
   } catch {
     return null;
   }
 }
 
-/**
- * Resolves the currently authenticated user:
- * 1. Checks Supabase Auth session (`supabase.auth.getUser()`) first and syncs with PostgreSQL `User`.
- * 2. Falls back to signed HTTP-only `along_token` cookie when Supabase Auth is not active.
- * Always enforces real-time `isBanned` and `role` from PostgreSQL.
- */
 export async function getCurrentUser(): Promise<SessionPayload | null> {
   // 1. Primary: Supabase Auth session
   try {
@@ -81,9 +78,12 @@ export async function getCurrentUser(): Promise<SessionPayload | null> {
           select: { id: true, isBanned: true, role: true, name: true, email: true },
         });
 
-        // Auto-provision PostgreSQL profile if user registered directly via Supabase Auth
         if (!dbUser) {
           const meta = (data.user.user_metadata ?? {}) as Record<string, unknown>;
+          const metaRole =
+            meta.role === "DRIVER" || meta.role === "PASSENGER"
+              ? meta.role
+              : "PASSENGER";
           dbUser = await prisma.user.create({
             data: {
               email,
@@ -97,7 +97,7 @@ export async function getCurrentUser(): Promise<SessionPayload | null> {
                   : "+201000000000",
               bio: typeof meta.bio === "string" ? meta.bio : "",
               passwordHash: "supabase_auth_managed",
-              role: "USER",
+              role: metaRole,
             },
             select: { id: true, isBanned: true, role: true, name: true, email: true },
           });
@@ -108,7 +108,7 @@ export async function getCurrentUser(): Promise<SessionPayload | null> {
           userId: dbUser.id,
           email: dbUser.email,
           name: dbUser.name,
-          role: dbUser.role,
+          role: dbUser.role as UserRole,
         };
       }
     }
@@ -133,6 +133,6 @@ export async function getCurrentUser(): Promise<SessionPayload | null> {
     userId: dbUser.id,
     email: dbUser.email,
     name: dbUser.name,
-    role: dbUser.role,
+    role: dbUser.role as UserRole,
   };
 }
